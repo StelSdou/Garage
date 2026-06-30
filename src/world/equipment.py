@@ -37,6 +37,19 @@ class Equipment(IBillable, ABC):
             raise ValueError("Η έκπτωση πρέπει να είναι μεταξύ 0% και 100%.")
         self.price -= self.price * (percentage / 100)
         return self.price
+    def __post_init__(self):
+        if self.quantity < 0:
+            raise ValueError("Η ποσότητα δεν μπορεί να είναι αρνητική.")
+        if self.price < 0:
+            raise ValueError("Η τιμή δεν μπορεί να είναι αρνητική.")
+        if not self.part_number:
+            raise ValueError("Το part number δεν μπορεί να είναι κενό.")
+    
+    def use_one(self):
+        if self.quantity < 1:
+            raise RuntimeError(f"Δεν υπάρχει διαθέσιμο απόθεμα για {self.part_number}.")
+        self.quantity -= 1
+        return f"Χρησιμοποιήθηκε 1 τεμάχιο από {self.part_number}. Υπόλοιπο: {self.quantity}"
 
 
 # ΥΓΡΑ (FLUIDS)
@@ -53,6 +66,12 @@ class Fluids(Equipment, ABC):
 
     def check_expiry_date(self) -> str:
         return "Το υγρό είναι εντός ημερομηνίας λήξης."
+    
+    def refill(self, amount: float):
+        if amount <= 0:
+            raise ValueError("Η ποσότητα αναπλήρωσης πρέπει να είναι θετική.")
+        self.liters += amount
+        print(f"Προστέθηκαν {amount}L. Νέα ποσότητα: {self.liters}L.")
 
 
 @dataclass
@@ -84,6 +103,15 @@ class UniversalParts(Equipment, ABC):
 
     def check_compatibility(self, brand: str) -> bool:
         return brand in self.compatible_brands
+    
+    def use_on_vehicle(self, vehicle_brand: str, vehicle_plate: str) -> str:
+        if self.compatible_brands and not self.check_compatibility(vehicle_brand):
+            raise RuntimeError(
+                f"Το ανταλλακτικό {self.part_number} δεν είναι συμβατό με {vehicle_brand}."
+            )
+
+        self.use_one()
+        return f"Το ανταλλακτικό {self.part_number} χρησιμοποιήθηκε στο όχημα {vehicle_plate}."
 
 
 @dataclass

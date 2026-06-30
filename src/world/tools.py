@@ -44,6 +44,27 @@ class Tool(ABC):
         self.location = current_location
         print(f"Το εργαλείο {self.tool_id} επιστράφηκε στη θέση {current_location}.")
 
+    def get_details(self) -> str:
+        borrowed_status = "Borrowed" if self._is_borrowed else "Available"
+        return (
+            f"Tool ID: {self.tool_id}, "
+            f"Condition: {self.condition}, "
+            f"Location: {self.location}, "
+            f"Status: {borrowed_status}"
+        )
+
+    def is_usable(self) -> bool:
+        return not self._is_borrowed and self.condition != "Damaged"
+
+
+    def check_before_use(self) -> str:
+        if self._is_borrowed:
+            return f"Το εργαλείο {self.tool_id} χρησιμοποιείται ήδη."
+        if self.condition == "Damaged":
+            return f"Το εργαλείο {self.tool_id} είναι κατεστραμμένο."
+        if self.condition == "Requires Calibration":
+            return f"Το εργαλείο {self.tool_id} χρειάζεται βαθμονόμηση."
+        return f"Το εργαλείο {self.tool_id} μπορεί να χρησιμοποιηθεί."
 
 @dataclass
 class ElectricalTool(Tool, ABC):
@@ -70,6 +91,12 @@ class ElectricalTool(Tool, ABC):
         print(f"Το ηλεκτρικό εργαλείο {self.tool_id} τέθηκε σε λειτουργία.")
         return True
 
+    def consume_battery(self, amount: int):
+        if amount < 0:
+            raise ValueError("Η κατανάλωση μπαταρίας δεν μπορεί να είναι αρνητική.")
+        if self.battery_level < amount:
+            raise RuntimeError(f"Το εργαλείο {self.tool_id} δεν έχει αρκετή μπαταρία.")
+        self.battery_level -= amount
 
 @dataclass
 class MechanicalTool(Tool, ABC):
@@ -84,7 +111,7 @@ class Obd2Scanner(ElectricalTool):
     def scan_error_codes(self) -> List[str]:
         if not self.power_on():
             return []
-        self.battery_level -= 10
+        self.consume_battery(10)
         print(f"Σάρωση μέσω πρωτοκόλλου {self.supported_protocol}...")
         return ["P0300", "P0171"]
 

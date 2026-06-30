@@ -11,7 +11,7 @@ class Vehicle(ABC):
     owner_name: str
     weight: float
     
-    _location: str = field(default="loby", init=False)
+    _location: str = field(default="lobby", init=False)
 
     def __post_init__(self):
         if self.weight <= 0:
@@ -36,6 +36,45 @@ class Vehicle(ABC):
     def identify_faults(self) -> List[str]:
         return [self.problem] if self.problem else ["No faults identified"]
 
+    def move_to(self, new_location: str) -> str:
+        old_location = self.location
+        self.location = new_location
+        return f"Το όχημα {self.license_plate} μετακινήθηκε από {old_location} σε {new_location}."
+
+
+    def add_fault(self, fault: str) -> str:
+        if not fault:
+            return "Δεν δόθηκε βλάβη."
+        if self.problem:
+            self.problem += f", {fault}"
+        else:
+            self.problem = fault
+        return f"Προστέθηκε βλάβη στο όχημα {self.license_plate}: {fault}"
+
+
+    def repair_faults(self) -> str:
+        if not self.problem:
+            return f"Το όχημα {self.license_plate} δεν έχει καταγεγραμμένες βλάβες."
+        old_problem = self.problem
+        self.problem = ""
+        return f"Οι βλάβες του οχήματος {self.license_plate} επισκευάστηκαν. Προηγούμενη βλάβη: {old_problem}"
+
+
+    def matches_description(self, description: str) -> bool:
+        description = description.lower()
+
+        keywords = [
+            self.license_plate.lower(),
+            self.brand.lower(),
+            self.color.lower(),
+            self.__class__.__name__.lower()
+        ]
+
+        return any(keyword in description for keyword in keywords)
+
+
+    def is_ready_for_service(self) -> bool:
+        return self.location in ["Garage Entrance", "Ramp A", "Ramp B"]
 
 @dataclass
 class StandardCar(Vehicle):

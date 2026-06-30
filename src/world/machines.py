@@ -6,6 +6,7 @@ class GarageMachine(ABC):
     machine_id: str
     
     _is_available: bool = field(default=True, init=False)
+    
 
     @property
     def is_available(self) -> bool:
@@ -32,6 +33,7 @@ class GarageMachine(ABC):
 class VehicleLift(GarageMachine, ABC):
     _max_lifting_capacity: float = 3.5
     last_inspection_date: str = "2026-01-01"
+    _current_vehicle_plate: str | None = field(default=None, init=False)
 
     def __post_init__(self):
         if self._max_lifting_capacity <= 0:
@@ -48,21 +50,42 @@ class VehicleLift(GarageMachine, ABC):
         self._max_lifting_capacity = capacity
 
     def lift_car(self, vehicle_plate: str, vehicle_weight_tons: float):
-        if not self.is_available:
-            raise RuntimeError(f"Η ράμπα {self.machine_id} είναι κατειλημμένη!")
-        
-        if vehicle_weight_tons > self.max_lifting_capacity:
-            raise ValueError(
-                f"Αδυναμία ανύψωσης! Το όχημα {vehicle_plate} ({vehicle_weight_tons}t) "
-                f"ξεπερνά το όριο της ράμπας ({self.max_lifting_capacity}t)."
-            )
+        can_lift, message = self.can_lift_vehicle(vehicle_plate, vehicle_weight_tons)
+
+        if not can_lift:
+            raise RuntimeError(message)
 
         self.book_machine()
+        self._current_vehicle_plate = vehicle_plate
         print(f"Το όχημα {vehicle_plate} ανυψώθηκε επιτυχώς στη ράμπα {self.machine_id}.")
 
-    def low_car(self, vehicle_plate: str):
+    def lower_car(self, vehicle_plate: str):
+        if self._current_vehicle_plate != vehicle_plate:
+            raise RuntimeError(
+                f"Το όχημα {vehicle_plate} δεν βρίσκεται στη ράμπα {self.machine_id}."
+            )
+
         print(f"Το όχημα {vehicle_plate} κατέβηκε από τη ράμπα {self.machine_id}.")
+        self._current_vehicle_plate = None
         self.release_machine()
+    
+    def can_lift_vehicle(self, vehicle_plate: str, vehicle_weight_tons: float) -> tuple[bool, str]:
+        if not self.is_available:
+            return False, f"Η ράμπα {self.machine_id} είναι ήδη κατειλημμένη."
+
+        if vehicle_weight_tons > self.max_lifting_capacity:
+            return False, (
+                f"Το όχημα {vehicle_plate} είναι πολύ βαρύ "
+                f"({vehicle_weight_tons}t > {self.max_lifting_capacity}t)."
+            )
+
+        return True, "Το όχημα μπορεί να ανυψωθεί."
+
+
+def get_current_vehicle(self) -> str:
+    if self._current_vehicle_plate is None:
+        return f"Η ράμπα {self.machine_id} είναι άδεια."
+    return f"Στη ράμπα {self.machine_id} βρίσκεται το όχημα {self._current_vehicle_plate}."
 
 
 @dataclass
