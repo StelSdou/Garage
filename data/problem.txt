@@ -1,0 +1,9 @@
+INIT
+Vehicle: BMW, black, ABC123, engine light
+Vehicle: Audi, red, AUD111, brake noise
+Tool: OBD-01, Obd2Scanner
+Machine: Ramp A, StandardLift
+
+GOAL
+BMW: location=Finished
+Audi: location=Finished

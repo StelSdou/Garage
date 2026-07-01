@@ -89,7 +89,10 @@ commands = [
     "lift the white SUV",
     "replace filter on the red Audi",
     "pour oil into the black BMW",
-    "move BMW to Finished"
+    "move BMW to Finished",
+    "repair the black BMW",
+    "use torque wrench on the blue Mercedes",
+    "move the blue Mercedes to Ramp B"
 ]
 
 for command in commands:

@@ -1,7 +1,7 @@
-from vehicle import Vehicle
-from tools import Obd2Scanner, BatteryTester, TorqueWrench
-from machines import VehicleLift
-from equipment import Oils, Filters, UniversalParts, Parts
+from src.world.vehicle import StandardCar, SUV, Van
+from src.world.tools import Obd2Scanner, BatteryTester, TorqueWrench
+from src.world.machines import VehicleLift
+from src.world.equipment import Oils, Filters, UniversalParts, Parts
 
 
 class GarageWorld:
@@ -12,7 +12,7 @@ class GarageWorld:
         self.equipment = []
         self.action_log = []
 
-    def add_vehicle(self, vehicle: Vehicle):
+    def add_vehicle(self, vehicle: StandardCar | SUV | Van):
         self.vehicles.append(vehicle)
 
     def add_tool(self, tool):
@@ -27,7 +27,7 @@ class GarageWorld:
     def log_action(self, action: str):
         self.action_log.append(action)
 
-    def find_vehicle(self, description: str) -> Vehicle:
+    def find_vehicle(self, description: str) -> StandardCar | SUV | Van:
         matches = []
 
         for vehicle in self.vehicles:
@@ -279,4 +279,4 @@ class GarageWorld:
 
             return self.move_vehicle(vehicle_description, location_map[location])
 
-        return "Δεν κατάλαβα την εντολή. Δοκίμασε π.χ. 'inspect the black BMW'."
+        return "Δεν κατάλαβα την εντολή."
