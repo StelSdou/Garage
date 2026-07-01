@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List
@@ -11,7 +12,7 @@ class Vehicle(ABC):
     owner_name: str
     weight: float
     
-    _location: str = field(default="lobby", init=False)
+    _location: str = field(default="Garage Entrance", init=False)
 
     def __post_init__(self):
         if self.weight <= 0:
@@ -24,7 +25,15 @@ class Vehicle(ABC):
     @location.setter
     def location(self, new_location: str):
         """Αλλάζει την τοποθεσία, αφού πρώτα ελέγξει αν είναι έγκυρη (Setter)."""
-        allowed_zones = ["Garage Entrance", "Ramp A", "Ramp B", "Tool Bench", "Finished"]
+        allowed_zones = [
+            "Garage Entrance",
+            "Ramp A",
+            "Ramp B",
+            "Ramp C",
+            "Ramp D",
+            "Tool Bench",
+            "Finished"
+        ]
         if new_location not in allowed_zones:
             raise ValueError(f"Σφάλμα: Η ζώνη '{new_location}' δεν υπάρχει στο συνεργείο!")
         self._location = new_location
@@ -61,16 +70,34 @@ class Vehicle(ABC):
 
 
     def matches_description(self, description: str) -> bool:
-        description = description.lower()
+        text = description.lower().strip()
+        text = re.sub(r'[^a-z0-9\s]+', ' ', text)
 
-        keywords = [
+        stop_words = {
+            'the', 'a', 'an', 'in', 'on', 'to', 'of', 'with', 'at', 'for',
+            'use', 'scan', 'inspect', 'lift', 'replace', 'check', 'pour',
+            'battery', 'filter', 'oil', 'move', 'repair', 'obd2', 'wrench',
+            'the', 'and', 'or', 'by', 'into', 'from'
+        }
+
+        tokens = [token for token in text.split() if token and token not in stop_words]
+        if not tokens:
+            return False
+
+        attributes = {
             self.license_plate.lower(),
             self.brand.lower(),
             self.color.lower(),
-            self.__class__.__name__.lower()
-        ]
+            self.__class__.__name__.lower(),
+            self.owner_name.lower()
+        }
+        attributes.update(self.problem.lower().split())
+        attributes.update(self.owner_name.lower().split())
 
-        return any(keyword in description for keyword in keywords)
+        def token_matches(token: str) -> bool:
+            return any(token == attr or token in attr or attr in token for attr in attributes)
+
+        return all(token_matches(token) for token in tokens)
 
 
     def is_ready_for_service(self) -> bool:

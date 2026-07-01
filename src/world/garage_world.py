@@ -1,8 +1,7 @@
-from src.world.vehicle import StandardCar, SUV, Van
+from src.world.vehicle import StandardCar, SUV, Van, HeavyVehicle
 from src.world.tools import Obd2Scanner, BatteryTester, TorqueWrench
-from src.world.machines import VehicleLift
-from src.world.equipment import Oils, Filters, UniversalParts, Parts
-
+from src.world.machines import VehicleLift, StandardLift, HeavyDutyLift
+from src.world.equipment import Oils, Filters, UniversalParts, Parts, BrakeParts
 
 class GarageWorld:
     def __init__(self):
@@ -152,7 +151,7 @@ class GarageWorld:
 
     def lift_vehicle(self, description: str) -> str:
         vehicle = self.find_vehicle(description)
-        lift = self.find_machine(VehicleLift)
+        lift = self.find_available_lift(vehicle)
 
         vehicle_weight = getattr(vehicle, "weight_tons", vehicle.weight)
 
@@ -168,10 +167,12 @@ class GarageWorld:
         return (
             f"Action sequence:\n"
             f"1. resolve vehicle: {vehicle.license_plate}\n"
-            f"2. find available lift: {lift.machine_id}\n"
-            f"3. check vehicle weight: {vehicle_weight}t\n"
-            f"4. book lift\n"
-            f"5. lift vehicle\n\n"
+            f"2. choose correct lift type\n"
+            f"3. find available lift: {lift.machine_id}\n"
+            f"4. check vehicle weight: {vehicle_weight}t\n"
+            f"5. check lift capacity: {lift.max_lifting_capacity}t\n"
+            f"6. book lift\n"
+            f"7. lift vehicle\n\n"
             f"Result:\n"
             f"Το όχημα {vehicle.license_plate} ανυψώθηκε στη ράμπα {lift.machine_id}."
         )
@@ -240,6 +241,90 @@ class GarageWorld:
 
         return "\n".join(lines)
 
+    def _parse_fluid_amount(self, detail: str) -> float:
+        if not detail:
+            return 1.0
+        normalized = detail.strip().lower().replace("l", "")
+        try:
+            return float(normalized)
+        except ValueError:
+            return 1.0
+
+    def _parse_torque_nm(self, detail: str) -> float:
+        if not detail:
+            return 200.0
+        normalized = detail.strip().lower().replace("nm", "")
+        try:
+            return float(normalized)
+        except ValueError:
+            return 200.0
+
+    def repair_vehicle(self, description: str) -> str:
+        vehicle = self.find_vehicle(description)
+        self.log_action(f"repair({vehicle.license_plate})")
+        result = vehicle.repair_faults()
+
+        return (
+            f"Action sequence:\n"
+            f"1. resolve vehicle: {vehicle.license_plate}\n"
+            f"2. perform repair\n\n"
+            f"Result:\n"
+            f"{result}"
+        )
+
+    def use_torque_wrench(self, description: str, torque_setting: str) -> str:
+        vehicle = self.find_vehicle(description)
+        wrench = self.find_tool(TorqueWrench)
+        torque_nm = self._parse_torque_nm(torque_setting)
+
+        self.log_action(f"use_torque_wrench({vehicle.license_plate}, {torque_nm}Nm)")
+
+        wrench.borrow_tool()
+        try:
+            wrench.set_torque(torque_nm)
+            return (
+                f"Action sequence:\n"
+                f"1. resolve vehicle: {vehicle.license_plate}\n"
+                f"2. borrow torque wrench: {wrench.tool_id}\n"
+                f"3. set torque to {torque_nm}Nm\n"
+                f"4. tighten bolts\n"
+                f"5. return torque wrench\n\n"
+                f"Result:\n"
+                f"Το δυναμόκλειδο χρησιμοποιήθηκε για το όχημα {vehicle.license_plate} σε {torque_nm}Nm."
+            )
+        finally:
+            wrench.return_tool("Tool Bench")
+
+    def execute_command(self, parsed_command, action_sequence) -> str:
+        intent = parsed_command.intent
+        target = parsed_command.target
+        detail = parsed_command.detail
+
+        if intent == "inspect":
+            return self.inspect_vehicle(target)
+        if intent == "scan":
+            return self.scan_vehicle_with_obd2(target)
+        if intent == "battery":
+            return self.test_vehicle_battery(target)
+        if intent == "lift":
+            return self.lift_vehicle(target)
+        if intent == "filter":
+            return self.replace_filter_on_vehicle(target)
+        if intent == "oil":
+            amount = self._parse_fluid_amount(detail)
+            return self.pour_oil_to_vehicle(target, amount)
+        if intent == "wrench":
+            return self.use_torque_wrench(target, detail)
+        if intent == "move":
+            destination = detail.title() if detail else "Finished"
+            return self.move_vehicle(target, destination)
+        if intent == "repair":
+            return self.repair_vehicle(target)
+        if intent == "show_state":
+            return self.show_world_state()
+
+        return self.handle_command(parsed_command.raw_text)
+
     def handle_command(self, command: str) -> str:
         command_lower = command.lower()
 
@@ -270,6 +355,8 @@ class GarageWorld:
                 "Garage Entrance": "Garage Entrance",
                 "Ramp A": "Ramp A",
                 "Ramp B": "Ramp B",
+                "Ramp C": "Ramp C",
+                "Ramp D": "Ramp D",
                 "Tool Bench": "Tool Bench",
                 "Finished": "Finished"
             }
@@ -280,3 +367,24 @@ class GarageWorld:
             return self.move_vehicle(vehicle_description, location_map[location])
 
         return "Δεν κατάλαβα την εντολή."
+    
+    def find_available_lift(self, vehicle):
+        vehicle_weight = getattr(vehicle, "weight_tons", vehicle.weight)
+
+        # Αν είναι βαρύ όχημα, θέλει HeavyDutyLift
+        if isinstance(vehicle, HeavyVehicle):
+            required_lift_type = HeavyDutyLift
+            lift_name = "heavy-duty ράμπα"
+        else:
+            required_lift_type = StandardLift
+            lift_name = "κανονική ράμπα"
+
+        for machine in self.machines:
+            if isinstance(machine, required_lift_type):
+                if machine.is_available and vehicle_weight <= machine.max_lifting_capacity:
+                    return machine
+
+        raise RuntimeError(
+            f"Δεν βρέθηκε διαθέσιμη {lift_name} για το όχημα "
+            f"{vehicle.license_plate} με βάρος {vehicle_weight}t."
+        )
